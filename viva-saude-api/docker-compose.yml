@@ -1,0 +1,11 @@
+# Sobe um PostgreSQL local para usar com o perfil "postgres".
+# Uso: docker compose up -d
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vivasaude
+      POSTGRES_USER: vivasaude
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-troque-esta-senha}
+    ports:
+      - "5432:5432"

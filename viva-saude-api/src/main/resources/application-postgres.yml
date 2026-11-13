@@ -1,0 +1,14 @@
+# Ative com: SPRING_PROFILES_ACTIVE=postgres
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/vivasaude}
+    username: ${DB_USER:vivasaude}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+app:
+  seed: ${APP_SEED:false}
+  jwt:
+    secret: ${JWT_SECRET}   # obrigatório: sem valor padrão aqui
