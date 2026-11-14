@@ -1,22 +1,33 @@
 package br.com.citizentech.vivasaude.api;
 
 import br.com.citizentech.vivasaude.api.dto.ConsultaResponse;
+import br.com.citizentech.vivasaude.api.dto.ExameResponse;
+import br.com.citizentech.vivasaude.api.dto.HistoricoItem;
+import br.com.citizentech.vivasaude.api.dto.MedidaRequest;
+import br.com.citizentech.vivasaude.api.dto.MedidaResponse;
+import br.com.citizentech.vivasaude.api.dto.NovoExameRequest;
 import br.com.citizentech.vivasaude.api.dto.NovaConsultaRequest;
 import br.com.citizentech.vivasaude.api.dto.PacienteResponse;
 import br.com.citizentech.vivasaude.api.dto.TriagemRequest;
 import br.com.citizentech.vivasaude.api.dto.TriagemResponse;
 import br.com.citizentech.vivasaude.api.dto.VagaResponse;
 import br.com.citizentech.vivasaude.auth.UsuarioAtual;
+import br.com.citizentech.vivasaude.domain.Acompanhamento;
 import br.com.citizentech.vivasaude.domain.Consulta;
+import br.com.citizentech.vivasaude.domain.Exame;
+import br.com.citizentech.vivasaude.domain.TiposExame;
 import br.com.citizentech.vivasaude.domain.Especialidades;
 import br.com.citizentech.vivasaude.domain.Paciente;
 import br.com.citizentech.vivasaude.domain.Prioridade;
 import br.com.citizentech.vivasaude.domain.StatusVaga;
 import br.com.citizentech.vivasaude.domain.Triagem;
 import br.com.citizentech.vivasaude.domain.Vaga;
+import br.com.citizentech.vivasaude.repository.AcompanhamentoRepository;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
+import br.com.citizentech.vivasaude.repository.ExameRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
 import br.com.citizentech.vivasaude.repository.VagaRepository;
+import br.com.citizentech.vivasaude.service.HistoricoService;
 import br.com.citizentech.vivasaude.service.VagaService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -46,14 +57,21 @@ public class PacienteController {
     private final TriagemRepository triagens;
     private final VagaRepository vagas;
     private final VagaService vagaService;
+    private final ExameRepository exames;
+    private final AcompanhamentoRepository acompanhamentos;
+    private final HistoricoService historico;
 
     public PacienteController(UsuarioAtual usuarioAtual, ConsultaRepository consultas, TriagemRepository triagens,
-                              VagaRepository vagas, VagaService vagaService) {
+                              VagaRepository vagas, VagaService vagaService, ExameRepository exames,
+                              AcompanhamentoRepository acompanhamentos, HistoricoService historico) {
         this.usuarioAtual = usuarioAtual;
         this.consultas = consultas;
         this.triagens = triagens;
         this.vagas = vagas;
         this.vagaService = vagaService;
+        this.exames = exames;
+        this.acompanhamentos = acompanhamentos;
+        this.historico = historico;
     }
 
     @GetMapping("/me")
@@ -101,6 +119,52 @@ public class PacienteController {
         Triagem triagem = new Triagem(usuarioAtual.paciente(jwt), req.area(), req.especialidade(),
                 req.sintomas(), req.alertas(), req.duracao(), req.relato());
         return TriagemResponse.from(triagens.save(triagem));
+    }
+
+    // ---------- Exames ----------
+
+    @GetMapping("/exames")
+    public List<ExameResponse> meusExames(@AuthenticationPrincipal Jwt jwt) {
+        Paciente paciente = usuarioAtual.paciente(jwt);
+        return exames.findByPacienteIdOrderByCriadoEmDesc(paciente.getId()).stream()
+                .map(ExameResponse::from)
+                .toList();
+    }
+
+    @PostMapping("/exames")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ExameResponse pedirExame(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody NovoExameRequest req) {
+        if (!TiposExame.existe(req.nome())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Exame inválido. Opções: " + String.join(", ", TiposExame.TODOS));
+        }
+        String unidade = (req.unidade() == null || req.unidade().isBlank()) ? null : req.unidade().trim();
+        return ExameResponse.from(exames.save(new Exame(usuarioAtual.paciente(jwt), req.nome(), unidade)));
+    }
+
+    // ---------- Acompanhamento (medidas) ----------
+
+    @GetMapping("/acompanhamentos")
+    public List<MedidaResponse> minhasMedidas(@AuthenticationPrincipal Jwt jwt) {
+        Paciente paciente = usuarioAtual.paciente(jwt);
+        return acompanhamentos.findByPacienteIdOrderByDataAscIdAsc(paciente.getId()).stream()
+                .map(MedidaResponse::from)
+                .toList();
+    }
+
+    @PostMapping("/acompanhamentos")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MedidaResponse registrarMedida(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody MedidaRequest req) {
+        // O construtor valida o valor: se for impossível, responde 400 e nada é salvo
+        Acompanhamento medida = new Acompanhamento(usuarioAtual.paciente(jwt), req.tipo(), req.valor());
+        return MedidaResponse.from(acompanhamentos.save(medida));
+    }
+
+    // ---------- Histórico ----------
+
+    @GetMapping("/historico")
+    public List<HistoricoItem> meuHistorico(@AuthenticationPrincipal Jwt jwt) {
+        return historico.de(usuarioAtual.paciente(jwt).getId());
     }
 
     // ---------- Vagas oferecidas a mim ----------

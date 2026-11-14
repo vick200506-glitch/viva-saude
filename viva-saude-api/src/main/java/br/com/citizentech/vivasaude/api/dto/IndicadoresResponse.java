@@ -17,6 +17,9 @@ public record IndicadoresResponse(
         long faltas,
         long vagasReaproveitadas,
         long vagasPerdidas,
+        long examesSolicitados,
+        long examesAgendados,
+        long examesRealizados,
         Map<String, Long> solicitacoesPorEspecialidade,
         Map<Prioridade, Long> triagensPorPrioridade,
         List<UnidadeIndicador> porUnidade) {

@@ -1,26 +1,36 @@
 package br.com.citizentech.vivasaude.api;
 
+import br.com.citizentech.vivasaude.api.dto.AgendarExameRequest;
 import br.com.citizentech.vivasaude.api.dto.AgendarRequest;
 import br.com.citizentech.vivasaude.api.dto.AvaliacaoRequest;
 import br.com.citizentech.vivasaude.api.dto.ComparecimentoRequest;
 import br.com.citizentech.vivasaude.api.dto.ConsultaResponse;
+import br.com.citizentech.vivasaude.api.dto.ExameResponse;
+import br.com.citizentech.vivasaude.api.dto.HistoricoItem;
+import br.com.citizentech.vivasaude.api.dto.MedidaResponse;
 import br.com.citizentech.vivasaude.api.dto.OfertaRequest;
 import br.com.citizentech.vivasaude.api.dto.PacienteResponse;
 import br.com.citizentech.vivasaude.api.dto.RespostaRequest;
+import br.com.citizentech.vivasaude.api.dto.ResultadoRequest;
 import br.com.citizentech.vivasaude.api.dto.TriagemResponse;
 import br.com.citizentech.vivasaude.api.dto.VagaResponse;
 import br.com.citizentech.vivasaude.domain.Consulta;
+import br.com.citizentech.vivasaude.domain.Exame;
 import br.com.citizentech.vivasaude.domain.Profissional;
 import br.com.citizentech.vivasaude.domain.StatusConsulta;
+import br.com.citizentech.vivasaude.domain.StatusExame;
 import br.com.citizentech.vivasaude.domain.StatusTriagem;
 import br.com.citizentech.vivasaude.domain.StatusVaga;
 import br.com.citizentech.vivasaude.domain.Triagem;
 import br.com.citizentech.vivasaude.domain.Vaga;
+import br.com.citizentech.vivasaude.repository.AcompanhamentoRepository;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
+import br.com.citizentech.vivasaude.repository.ExameRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.ProfissionalRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
 import br.com.citizentech.vivasaude.repository.VagaRepository;
+import br.com.citizentech.vivasaude.service.HistoricoService;
 import br.com.citizentech.vivasaude.service.VagaService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
@@ -48,16 +58,23 @@ public class ProfissionalController {
     private final PacienteRepository pacientes;
     private final VagaRepository vagas;
     private final VagaService vagaService;
+    private final ExameRepository exames;
+    private final AcompanhamentoRepository acompanhamentos;
+    private final HistoricoService historico;
 
     public ProfissionalController(TriagemRepository triagens, ConsultaRepository consultas,
                                   ProfissionalRepository profissionais, PacienteRepository pacientes,
-                                  VagaRepository vagas, VagaService vagaService) {
+                                  VagaRepository vagas, VagaService vagaService, ExameRepository exames,
+                                  AcompanhamentoRepository acompanhamentos, HistoricoService historico) {
         this.triagens = triagens;
         this.consultas = consultas;
         this.profissionais = profissionais;
         this.pacientes = pacientes;
         this.vagas = vagas;
         this.vagaService = vagaService;
+        this.exames = exames;
+        this.acompanhamentos = acompanhamentos;
+        this.historico = historico;
     }
 
     /** Triagens aguardando avaliação: as mais urgentes primeiro. */
@@ -153,6 +170,56 @@ public class ProfissionalController {
     @PostMapping("/vagas/{id}/resposta")
     public VagaResponse resposta(@PathVariable Long id, @RequestBody RespostaRequest req) {
         return VagaResponse.from(vagaService.responder(vagaService.buscar(id), req.aceitou()));
+    }
+
+    // ---------- Exames ----------
+
+    /** Exames pendentes: primeiro os solicitados (para agendar), depois os agendados (para registrar resultado). */
+    @GetMapping("/exames")
+    public List<ExameResponse> exames() {
+        return exames.findByStatusIn(List.of(StatusExame.SOLICITADO, StatusExame.AGENDADO)).stream()
+                .sorted(Comparator.comparing(Exame::getStatus).thenComparing(Exame::getCriadoEm))
+                .map(ExameResponse::from)
+                .toList();
+    }
+
+    @PostMapping("/exames/{id}/agendar")
+    public ExameResponse agendarExame(@PathVariable Long id, @Valid @RequestBody AgendarExameRequest req) {
+        Exame exame = buscarExame(id);
+        exame.agendar(req.data(), req.unidade());
+        return ExameResponse.from(exames.save(exame));
+    }
+
+    @PostMapping("/exames/{id}/resultado")
+    public ExameResponse registrarResultado(@PathVariable Long id, @Valid @RequestBody ResultadoRequest req) {
+        Exame exame = buscarExame(id);
+        exame.registrarResultado(req.resultado().trim());
+        return ExameResponse.from(exames.save(exame));
+    }
+
+    private Exame buscarExame(Long id) {
+        return exames.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Exame não encontrado."));
+    }
+
+    // ---------- Histórico e medidas de um paciente ----------
+
+    @GetMapping("/pacientes/{id}/historico")
+    public List<HistoricoItem> historicoDoPaciente(@PathVariable Long id) {
+        exigirPaciente(id);
+        return historico.de(id);
+    }
+
+    @GetMapping("/pacientes/{id}/acompanhamentos")
+    public List<MedidaResponse> medidasDoPaciente(@PathVariable Long id) {
+        exigirPaciente(id);
+        return acompanhamentos.findByPacienteIdOrderByDataAscIdAsc(id).stream().map(MedidaResponse::from).toList();
+    }
+
+    private void exigirPaciente(Long id) {
+        if (!pacientes.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Paciente não encontrado.");
+        }
     }
 
     @GetMapping("/pacientes")

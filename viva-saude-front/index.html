@@ -795,11 +795,16 @@ function iniciar(){
 }
 /** No modo API, mostra só as abas que a API já atende (mais a simulação, que roda no navegador). */
 const LOCAL_NA_API=new Set(["simulacao"]);
+const EXTRA_API={profissional:[["exames","Exames","clip","agenda"]]}; // [chave, nome, ícone, entra depois de]
 function abasAtuais(){
   const lista=ABAS[ui.papel];
   if(MODO!=="api") return lista;
-  return lista.filter(a=>API_VIEWS[a[0]]||LOCAL_NA_API.has(a[0])).map(a=>API_VIEWS[a[0]]?[a[0],a[1],a[2],API_VIEWS[a[0]]]:a);
+  const abas=lista.filter(a=>API_VIEWS[a[0]]||LOCAL_NA_API.has(a[0])).map(a=>API_VIEWS[a[0]]?[a[0],a[1],a[2],API_VIEWS[a[0]]]:a);
+  (EXTRA_API[ui.papel]||[]).forEach(([k,t,i,depois])=>{const pos=abas.findIndex(a=>a[0]===depois);abas.splice(pos+1,0,[k,t,i,API_VIEWS[k]])});
+  return abas;
 }
+const UNIDADES_SP=["UBS Centro","UBS Zona Leste","UBS Zona Sul","AMA Especialidades"];
+const TIPO_MEDIDA={"Pressão arterial":"PRESSAO_ARTERIAL","Glicemia":"GLICEMIA","Peso":"PESO"};
 
 /* A API devolve status em MAIÚSCULAS e horário "09:00:00": deixamos no formato das telas */
 const norm=c=>({...c,status:String(c.status).toLowerCase(),prioridade:c.prioridade?String(c.prioridade).toLowerCase():null,
@@ -840,8 +845,14 @@ const API_VIEWS={
     return `<h1>Agendar</h1><p class="lead">Peça uma consulta. A unidade de saúde confirma o dia e o horário.</p>
     <div class="grid">
     <form class="card" data-form="agendarApi"><h2>Novo pedido</h2>
-      <div class="field"><label for="ag-esp">Especialidade</label><select id="ag-esp" name="especialidade">${ESPECIALIDADES.map(e=>`<option${e==="Clínico geral"?" selected":""}>${e}</option>`).join("")}</select></div>
-      <p class="muted sm">Consultas com especialista podem precisar de encaminhamento. Na dúvida, escolha Clínico geral ou faça a triagem.</p>
+      <div class="field"><label for="ag-tipo">O que você precisa?</label>
+        <select id="ag-tipo" name="tipo" data-ui="agTipo"><option value="consulta"${ui.agTipo==="consulta"?" selected":""}>Consulta</option><option value="exame"${ui.agTipo==="exame"?" selected":""}>Exame</option></select></div>
+      ${ui.agTipo==="exame"
+        ?`<div class="field"><label for="ag-ex">Exame</label><select id="ag-ex" name="item">${EXAMES.map(e=>`<option>${e}</option>`).join("")}</select></div>
+          <div class="field"><label for="ag-uni">Unidade de preferência</label><select id="ag-uni" name="unidade"><option value="">Qualquer unidade</option>${UNIDADES_SP.map(u=>`<option>${u}</option>`).join("")}</select></div>
+          <p class="muted sm">A unidade confirma o dia. O resultado aparece em Minha saúde.</p>`
+        :`<div class="field"><label for="ag-esp">Especialidade</label><select id="ag-esp" name="item">${ESPECIALIDADES.map(e=>`<option${e==="Clínico geral"?" selected":""}>${e}</option>`).join("")}</select></div>
+          <p class="muted sm">Consultas com especialista podem precisar de encaminhamento. Na dúvida, escolha Clínico geral ou faça a triagem.</p>`}
       <button class="btn">${icon("cal")} Enviar pedido</button></form>
     <div class="card"><h2>Meus atendimentos</h2>
       ${cs.length?`<ul class="list">${cs.map(c=>liConsulta(c,(c.status==="agendada"&&c.data>=HOJE)||c.status==="solicitada"
@@ -852,13 +863,26 @@ const API_VIEWS={
   },
   triagem:async()=>vTriagem(),
   async saude(){
-    const [cs,ts]=await Promise.all([api("/api/paciente/consultas"),api("/api/paciente/triagens")]);
-    const itens=[...cs.map(norm).filter(c=>c.status==="realizada").map(c=>({d:c.data,tipo:"Consulta",t:`${c.especialidade} — ${c.profissional||""} (${c.unidade||""})`})),
-      ...ts.filter(t=>t.status!=="AGUARDANDO").map(t=>({d:t.criadaEm,tipo:"Triagem",t:`${t.area}: ${STATUS_TXT[low(t.status)]||low(t.status)}`}))]
-      .sort((a,b)=>String(b.d).localeCompare(String(a.d)));
-    return `<h1>Minha saúde</h1><p class="lead">Seu histórico de atendimentos.</p>
-    <div class="card"><h2>Histórico</h2>${itens.length?`<ul class="list">${itens.map(h=>`<li><div class="row between"><strong>${br(h.d)}</strong><span class="badge">${h.tipo}</span></div>${esc(h.t)}</li>`).join("")}</ul>`:`<p class="muted">Sem registros ainda.</p>`}</div>
-    ${aviso("Exames e acompanhamento de medidas (pressão, glicemia, peso) ainda não estão na API. É um próximo passo do backend.")}`;
+    const [hist,exs,meds]=await Promise.all([api("/api/paciente/historico"),api("/api/paciente/exames"),api("/api/paciente/acompanhamentos")]);
+    const doTipo=meds.filter(m=>m.rotulo===ui.acTipo);
+    return `<h1>Minha saúde</h1><p class="lead">Seu histórico, seus exames e o acompanhamento que você registra.</p>
+    <div class="grid">
+      <div class="card"><h2>Histórico</h2>${hist.length?`<ul class="list">${hist.map(h=>`<li><div class="row between"><strong>${br(h.data)}</strong><span class="badge">${esc(h.tipo)}</span></div>${esc(h.descricao)}</li>`).join("")}</ul>`:`<p class="muted">Sem registros ainda.</p>`}</div>
+      <div class="card"><h2>Exames</h2>${exs.length?`<ul class="list">${exs.map(e=>`<li><div class="row between"><strong>${esc(e.nome)}</strong>${badgeSt(low(e.status))}</div>
+        <span class="muted sm">${e.data?br(e.data)+" · ":""}${esc(e.unidade||"Unidade a definir")}</span>${e.resultado?`<br>${esc(e.resultado)}`:""}</li>`).join("")}</ul>`
+        :`<p class="muted">Nenhum exame. Peça um em Agendar.</p>`}</div>
+    </div>
+    <div class="card" style="margin-top:14px"><h2>Acompanhamento</h2>
+      <p class="hint">Registre medidas feitas em casa ou na UBS. A equipe de saúde pode ver a evolução.</p>
+      <form data-form="acompApi" class="form2">
+        <div class="field"><label for="ac-tipo">Medida</label><select id="ac-tipo" name="tipo">${Object.keys(TIPO_MEDIDA).map(t=>`<option${t===ui.acTipo?" selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="field"><label for="ac-val">Valor</label><input type="text" id="ac-val" name="valor" placeholder="Ex.: 130/80, 98 ou 72,5" required></div>
+        <div class="field" style="align-self:end"><button class="btn">Registrar</button></div>
+      </form>
+      <div class="row" role="group" aria-label="Escolher gráfico" style="margin:6px 0 10px">${Object.keys(TIPO_MEDIDA).map(t=>`<button type="button" class="btn small ${t===ui.acTipo?"":"alt"}" data-act="acTipo" data-id="${t}" aria-pressed="${t===ui.acTipo}">${t}</button>`).join("")}</div>
+      ${grafico(doTipo,ui.acTipo)}
+      ${doTipo.length?`<p class="muted sm">Último registro: <strong>${esc(doTipo[doTipo.length-1].valor)} ${esc(doTipo[doTipo.length-1].unidade)}</strong> em ${br(doTipo[doTipo.length-1].data)}.</p>`:""}
+    </div>`;
   },
   async perfil(){
     const p=await api("/api/paciente/me");
@@ -907,6 +931,23 @@ const API_VIEWS={
       <button class="btn ${ui.confirmar===c.id?"danger":"ghost"} small" data-act="cancelarProfApi" data-id="${c.id}">${ui.confirmar===c.id?"Confirmar":"Cancelar"}</button></div></td></tr>`).join("")}</tbody></table></div>`
     :`<p class="card muted">Nenhuma consulta agendada${ui.unidade?" nesta unidade":""}.</p>`}`;
   },
+  async exames(){
+    const exs=await api("/api/profissional/exames"),dia=proximoDiaUtil();
+    const sol=exs.filter(e=>e.status==="SOLICITADO"),ag=exs.filter(e=>e.status==="AGENDADO");
+    return cabProfApi()+`<h2>Exames para agendar (${sol.length})</h2>
+    ${sol.length?`<div class="card tablewrap"><table><thead><tr><th>Paciente</th><th>Exame</th><th>Pedido em</th><th>Agendar para</th></tr></thead><tbody>
+    ${sol.map(e=>`<tr><td>${esc(e.paciente)}</td><td>${esc(e.nome)}</td><td>${br(e.criadoEm)}</td>
+      <td><div class="row"><input type="date" id="ex-d-${e.id}" value="${dia}" min="${HOJE}" aria-label="Data do exame" style="width:auto">
+      <select id="ex-u-${e.id}" aria-label="Unidade" style="width:auto">${UNIDADES_SP.map(u=>`<option${u===e.unidade?" selected":""}>${u}</option>`).join("")}</select>
+      <button class="btn small" data-act="agendarExameApi" data-id="${e.id}">Agendar</button></div></td></tr>`).join("")}</tbody></table></div>`
+    :`<p class="card muted">Nenhum exame aguardando agendamento.</p>`}
+    <h2 style="margin-top:22px">Exames agendados: registrar resultado (${ag.length})</h2>
+    ${ag.length?`<div class="card tablewrap"><table><thead><tr><th>Paciente</th><th>Exame</th><th>Data e local</th><th>Resultado</th></tr></thead><tbody>
+    ${ag.map(e=>`<tr><td>${esc(e.paciente)}</td><td>${esc(e.nome)}</td><td>${br(e.data)}<br><span class="muted">${esc(e.unidade)}</span></td>
+      <td><div class="row"><input type="text" id="ex-r-${e.id}" placeholder="Ex.: Dentro do esperado" aria-label="Resultado de ${esc(e.nome)}" maxlength="1000" style="width:auto;flex:1 1 180px">
+      <button class="btn small" data-act="resultadoExameApi" data-id="${e.id}">Registrar</button></div></td></tr>`).join("")}</tbody></table></div>`
+    :`<p class="card muted">Nenhum exame agendado.</p>`}`;
+  },
   async vagas(){
     const vs=(await api("/api/profissional/vagas")).map(v=>({...v,horario:String(v.horario).slice(0,5)}));
     const unidades=[...new Set(vs.map(v=>v.unidade).filter(Boolean))].sort();
@@ -935,10 +976,19 @@ const API_VIEWS={
   },
   async pacientes(){
     const ps=await api("/api/profissional/pacientes");
+    let det="";
+    if(ui.pacAberto&&ps.some(p=>p.id===ui.pacAberto)){
+      const [hist,meds]=await Promise.all([api(`/api/profissional/pacientes/${ui.pacAberto}/historico`),api(`/api/profissional/pacientes/${ui.pacAberto}/acompanhamentos`)]);
+      const ultimas=Object.values(meds.reduce((o,m)=>{o[m.rotulo]=m;return o},{}));
+      det=`<ul class="list">${hist.map(h=>`<li><strong>${br(h.data)}</strong> · <span class="badge">${esc(h.tipo)}</span> ${esc(h.descricao)}</li>`).join("")||"<li>Sem registros no histórico.</li>"}</ul>
+        <p class="sm" style="margin:10px 0 0"><strong>Últimas medidas:</strong> ${ultimas.map(m=>`${esc(m.rotulo)} ${esc(m.valor)} ${esc(m.unidade)} (${br(m.data)})`).join(" · ")||"nenhuma registrada"}</p>`;
+    }
     return cabProfApi()+`<h2>Pacientes cadastrados (${ps.length})</h2>
     <div class="field" style="max-width:420px"><label for="busca">Buscar por nome ou bairro</label><input type="search" id="busca" placeholder="Digite para filtrar"></div>
-    <div class="card tablewrap"><table><thead><tr><th>Nome</th><th>Idade</th><th>Bairro</th><th>Telefone</th></tr></thead><tbody id="tbPac">
-    ${ps.map(p=>`<tr data-busca="${esc((p.nome+" "+(p.bairro||"")).toLowerCase())}"><td><strong>${esc(p.nome)}</strong></td><td>${p.nascimento?idade(p.nascimento):"—"}</td><td>${esc(p.bairro||"—")}</td><td>${esc(p.telefone||"—")}</td></tr>`).join("")}
+    <div class="card tablewrap"><table><thead><tr><th>Nome</th><th>Idade</th><th>Bairro</th><th>Telefone</th><th></th></tr></thead><tbody id="tbPac">
+    ${ps.map(p=>{const aberto=ui.pacAberto===p.id;return `<tr data-busca="${esc((p.nome+" "+(p.bairro||"")).toLowerCase())}"><td><strong>${esc(p.nome)}</strong></td><td>${p.nascimento?idade(p.nascimento):"—"}</td><td>${esc(p.bairro||"—")}</td><td>${esc(p.telefone||"—")}</td>
+      <td><button class="btn alt small" data-act="verPac" data-id="${p.id}" aria-expanded="${aberto}">${aberto?"Fechar":"Histórico"}</button></td></tr>
+      ${aberto?`<tr><td colspan="5">${det}</td></tr>`:""}`}).join("")}
     </tbody></table></div>`;
   },
 
@@ -951,7 +1001,7 @@ const API_VIEWS={
     const pri=[["Alta",tp.VERMELHO||0,"f-vermelho"],["Média",tp.AMARELO||0,"f-amarelo"],["Baixa",tp.VERDE||0,"f-verde"]];
     return `<h1>Painel da prefeitura</h1><p class="lead">Indicadores da rede municipal, vindos da API. Só números somados, sem dados pessoais.</p>
     <div class="kpis">${kpi(d.pacientesCadastrados,"Pacientes cadastrados")}${kpi(d.pedidosNaFila,"Pedidos na fila")}${kpi(String(d.tempoMedioEsperaDias).replace(".",",")+" dias","Tempo médio de espera")}
-      ${kpi(d.consultasRealizadas,"Consultas realizadas")}${kpi(d.cancelamentos,"Cancelamentos")}${kpi(d.faltas,"Faltas")}${kpi(d.vagasReaproveitadas,"Vagas reaproveitadas")}${kpi(d.vagasPerdidas,"Vagas perdidas")}</div>
+      ${kpi(d.consultasRealizadas,"Consultas realizadas")}${kpi(d.cancelamentos,"Cancelamentos")}${kpi(d.faltas,"Faltas")}${kpi(d.vagasReaproveitadas,"Vagas reaproveitadas")}${kpi(d.vagasPerdidas,"Vagas perdidas")}${kpi(d.examesSolicitados,"Exames a agendar")}${kpi(d.examesAgendados,"Exames agendados")}${kpi(d.examesRealizados,"Exames realizados")}</div>
     <div class="grid"><div class="card"><h2>Solicitações por especialidade</h2>${esp.length?barras(esp):`<p class="muted">Sem dados.</p>`}</div>
       <div class="card"><h2>Triagens por prioridade</h2>${barras(pri)}</div></div>
     <div class="card" style="margin-top:14px"><h2>Indicadores por unidade de saúde</h2><div class="tablewrap"><table><thead><tr><th>Unidade</th><th>Agendadas</th><th>Realizadas</th><th>Canceladas</th><th>Faltas</th><th>Vagas reaproveitadas</th></tr></thead><tbody>
@@ -1048,6 +1098,12 @@ const ACT={
     acaoApi(()=>api(`/api/profissional/consultas/${el.dataset.id}/comparecimento`,{method:"PATCH",body:{compareceu:v}}),v?"Consulta registrada como realizada.":"Falta registrada.")},
   cancelarProfApi(el){const id=+el.dataset.id;if(ui.confirmar!==id){ui.confirmar=id;render();return}
     ui.confirmar=null;acaoApi(()=>api(`/api/profissional/consultas/${id}/cancelar`,{method:"PATCH"}),"Consulta cancelada.")},
+  agendarExameApi(el){const id=el.dataset.id,data=$("ex-d-"+id).value,unidade=$("ex-u-"+id).value;
+    if(!data){toast("Escolha a data.");return}
+    acaoApi(()=>api(`/api/profissional/exames/${id}/agendar`,{method:"POST",body:{data,unidade}}),`Exame agendado para ${br(data)}.`)},
+  resultadoExameApi(el){const id=el.dataset.id,resultado=$("ex-r-"+id).value.trim();
+    if(!resultado){toast("Escreva o resultado.");return}
+    acaoApi(()=>api(`/api/profissional/exames/${id}/resultado`,{method:"POST",body:{resultado}}),"Resultado registrado. O paciente já pode ver.")},
   oferecerApi(el){acaoApi(()=>api(`/api/profissional/vagas/${el.dataset.id}/oferecer`,{method:"POST",body:{consultaId:+el.dataset.c}}),"Vaga oferecida. O paciente vê a oferta no app.")},
   respostaApi(el){const v=el.dataset.v==="1";ui.vagaAberta=v?null:+el.dataset.id;
     acaoApi(()=>api(`/api/profissional/vagas/${el.dataset.id}/resposta`,{method:"POST",body:{aceitou:v}}),v?"Vaga preenchida! A consulta foi antecipada.":"Recusa registrada. Ofereça para a próxima pessoa.")},
@@ -1072,7 +1128,12 @@ const FORMS={
         nascimento:fd.get("nascimento")||null,telefone:fd.get("telefone")||null,bairro:fd.get("bairro")||null}});
       $("fCadastro").reset();$("fCadastro").hidden=true;entrar(r)}
     catch(e){mostrarLogin(e.message)}},
-  agendarApi(fd){acaoApi(()=>api("/api/paciente/consultas",{method:"POST",body:{especialidade:fd.get("especialidade")}}),"Pedido enviado! Acompanhe em Meus atendimentos.")},
+  agendarApi(fd){
+    if(fd.get("tipo")==="exame") return acaoApi(()=>api("/api/paciente/exames",{method:"POST",body:{nome:fd.get("item"),unidade:fd.get("unidade")||null}}),"Pedido de exame enviado! Acompanhe em Minha saúde.");
+    acaoApi(()=>api("/api/paciente/consultas",{method:"POST",body:{especialidade:fd.get("item")}}),"Pedido enviado! Acompanhe em Meus atendimentos.")},
+  acompApi(fd){
+    const rot=fd.get("tipo");ui.acTipo=rot;
+    acaoApi(()=>api("/api/paciente/acompanhamentos",{method:"POST",body:{tipo:TIPO_MEDIDA[rot],valor:String(fd.get("valor")||"")}}),"Registro salvo.")},
   agendar(fd){const u=me(),tipo=fd.get("tipo"),item=fd.get("item"),pref=fd.get("unidade");
     if(tipo==="consulta"){S.consultas.push({id:nid(),paciente_id:u.id,especialidade:item,unidade:null,unidade_pref:pref||null,profissional:null,data:null,horario:null,status:"solicitada",criada:HOJE,prioridade:"verde",origem:"Aplicativo",obs:fd.get("obs")});
       notificar(u.id,`Recebemos seu pedido de consulta de ${item}. Você será avisado(a) quando for marcada.`);ok("Pedido enviado! Acompanhe em Meus atendimentos.")}

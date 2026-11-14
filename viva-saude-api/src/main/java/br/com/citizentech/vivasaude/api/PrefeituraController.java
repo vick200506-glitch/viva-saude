@@ -5,10 +5,12 @@ import br.com.citizentech.vivasaude.api.dto.IndicadoresResponse.UnidadeIndicador
 import br.com.citizentech.vivasaude.domain.Consulta;
 import br.com.citizentech.vivasaude.domain.Prioridade;
 import br.com.citizentech.vivasaude.domain.StatusConsulta;
+import br.com.citizentech.vivasaude.domain.StatusExame;
 import br.com.citizentech.vivasaude.domain.StatusVaga;
 import br.com.citizentech.vivasaude.domain.Triagem;
 import br.com.citizentech.vivasaude.domain.Vaga;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
+import br.com.citizentech.vivasaude.repository.ExameRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
 import br.com.citizentech.vivasaude.repository.VagaRepository;
@@ -35,13 +37,15 @@ public class PrefeituraController {
     private final TriagemRepository triagens;
     private final PacienteRepository pacientes;
     private final VagaRepository vagas;
+    private final ExameRepository exames;
 
     public PrefeituraController(ConsultaRepository consultas, TriagemRepository triagens, PacienteRepository pacientes,
-                                VagaRepository vagas) {
+                                VagaRepository vagas, ExameRepository exames) {
         this.consultas = consultas;
         this.triagens = triagens;
         this.pacientes = pacientes;
         this.vagas = vagas;
+        this.exames = exames;
     }
 
     @GetMapping("/indicadores")
@@ -109,6 +113,9 @@ public class PrefeituraController {
                 porStatus.getOrDefault(StatusConsulta.FALTOU, 0L),
                 reaproveitadas,
                 perdidas,
+                exames.countByStatus(StatusExame.SOLICITADO),
+                exames.countByStatus(StatusExame.AGENDADO),
+                exames.countByStatus(StatusExame.REALIZADO),
                 porEspecialidade,
                 triagensPorPrioridade,
                 unidades);

@@ -1,14 +1,19 @@
 package br.com.citizentech.vivasaude.config;
 
+import br.com.citizentech.vivasaude.domain.Acompanhamento;
 import br.com.citizentech.vivasaude.domain.Consulta;
+import br.com.citizentech.vivasaude.domain.Exame;
 import br.com.citizentech.vivasaude.domain.Paciente;
 import br.com.citizentech.vivasaude.domain.Perfil;
 import br.com.citizentech.vivasaude.domain.Prioridade;
 import br.com.citizentech.vivasaude.domain.Profissional;
+import br.com.citizentech.vivasaude.domain.TipoMedida;
 import br.com.citizentech.vivasaude.domain.Triagem;
 import br.com.citizentech.vivasaude.domain.Usuario;
 import br.com.citizentech.vivasaude.domain.Vaga;
+import br.com.citizentech.vivasaude.repository.AcompanhamentoRepository;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
+import br.com.citizentech.vivasaude.repository.ExameRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.ProfissionalRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
@@ -37,17 +42,21 @@ public class DataSeeder implements CommandLineRunner {
     private final ConsultaRepository consultas;
     private final TriagemRepository triagens;
     private final VagaRepository vagas;
+    private final ExameRepository exames;
+    private final AcompanhamentoRepository acompanhamentos;
     private final PasswordEncoder encoder;
 
     public DataSeeder(UsuarioRepository usuarios, PacienteRepository pacientes, ProfissionalRepository profissionais,
                       ConsultaRepository consultas, TriagemRepository triagens, VagaRepository vagas,
-                      PasswordEncoder encoder) {
+                      ExameRepository exames, AcompanhamentoRepository acompanhamentos, PasswordEncoder encoder) {
         this.usuarios = usuarios;
         this.pacientes = pacientes;
         this.profissionais = profissionais;
         this.consultas = consultas;
         this.triagens = triagens;
         this.vagas = vagas;
+        this.exames = exames;
+        this.acompanhamentos = acompanhamentos;
         this.encoder = encoder;
     }
 
@@ -123,6 +132,32 @@ public class DataSeeder implements CommandLineRunner {
 
         consultas.saveAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
         vagas.save(new Vaga(carlos, "Cardiologia", hoje.plusDays(3), LocalTime.of(15, 0), "Cancelamento"));
+
+        // ---- Exames da Maria: um com resultado, um agendado, um aguardando ----
+        Exame hemograma = new Exame(maria, "Hemograma completo", "UBS Centro");
+        hemograma.definirCriadoEm(hoje.minusDays(27));
+        hemograma.agendar(hoje.minusDays(20), "UBS Centro");
+        hemograma.registrarResultado("Dentro do esperado (exemplo fictício).");
+        Exame eletro = new Exame(maria, "Eletrocardiograma", null);
+        eletro.definirCriadoEm(hoje.minusDays(12));
+        eletro.agendar(hoje.plusDays(10), "AMA Especialidades");
+        Exame glicemia = new Exame(maria, "Glicemia em jejum", null);
+        glicemia.definirCriadoEm(hoje.minusDays(2));
+        exames.saveAll(List.of(hemograma, eletro, glicemia));
+
+        // ---- Medidas da Maria: a pressão vem caindo nas últimas semanas ----
+        String[] pressoes = {"150/95", "145/92", "140/90", "135/85", "130/82"};
+        int[] diasAtras = {28, 21, 14, 7, 1};
+        for (int i = 0; i < pressoes.length; i++) {
+            Acompanhamento medida = new Acompanhamento(maria, TipoMedida.PRESSAO_ARTERIAL, pressoes[i]);
+            medida.definirData(hoje.minusDays(diasAtras[i]));
+            acompanhamentos.save(medida);
+        }
+        Acompanhamento peso1 = new Acompanhamento(maria, TipoMedida.PESO, "72.5");
+        peso1.definirData(hoje.minusDays(21));
+        Acompanhamento peso2 = new Acompanhamento(maria, TipoMedida.PESO, "71.8");
+        peso2.definirData(hoje.minusDays(1));
+        acompanhamentos.saveAll(List.of(peso1, peso2));
 
         // ---- Triagens aguardando avaliação ----
         triagens.saveAll(List.of(

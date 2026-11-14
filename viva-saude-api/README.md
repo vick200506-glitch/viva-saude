@@ -78,6 +78,9 @@ curl -i http://localhost:8080/api/prefeitura/indicadores -H "Authorization: Bear
 | GET | `/api/paciente/vagas-oferecidas` | Vagas oferecidas para mim |
 | POST | `/api/paciente/vagas/{id}/aceitar` | Aceitar uma vaga oferecida para mim |
 | POST | `/api/paciente/vagas/{id}/recusar` | Recusar uma vaga oferecida para mim |
+| GET / POST | `/api/paciente/exames` | Ver meus exames / pedir exame `{nome, unidade}` |
+| GET / POST | `/api/paciente/acompanhamentos` | Ver / registrar medida `{tipo: PRESSAO_ARTERIAL, GLICEMIA ou PESO, valor}` |
+| GET | `/api/paciente/historico` | Meu histórico (consultas, exames e triagens) |
 
 ### Profissional (`PROFISSIONAL`)
 | Método | Rota | O que faz |
@@ -94,6 +97,11 @@ curl -i http://localhost:8080/api/prefeitura/indicadores -H "Authorization: Bear
 | GET | `/api/profissional/vagas/{id}/elegiveis` | Quem pode ficar com a vaga, em ordem |
 | POST | `/api/profissional/vagas/{id}/oferecer` | `{consultaId}` oferece a vaga a um pedido |
 | POST | `/api/profissional/vagas/{id}/resposta` | `{aceitou: true/false}` registra a resposta do paciente |
+| GET | `/api/profissional/exames` | Exames para agendar e para registrar resultado |
+| POST | `/api/profissional/exames/{id}/agendar` | `{data, unidade}` |
+| POST | `/api/profissional/exames/{id}/resultado` | `{resultado}` |
+| GET | `/api/profissional/pacientes/{id}/historico` | Histórico de um paciente |
+| GET | `/api/profissional/pacientes/{id}/acompanhamentos` | Medidas de um paciente |
 
 ### Prefeitura (`GESTOR`)
 | Método | Rota | O que faz |
@@ -146,4 +154,4 @@ Fluxo no front:
 - Registrar quem acessou os dados de cada paciente (auditoria, exigência da LGPD para dados de saúde).
 - Restringir o profissional aos pacientes da sua unidade.
 - Migrações de banco com Flyway em vez de `ddl-auto: update`.
-- Entidades que faltam do modelo do projeto: `responsaveis`, `unidades`, `exames`, `historico` e `notificacoes`.
+- Entidades que faltam do modelo do projeto: `responsaveis`, `unidades` e `notificacoes`. O histórico não é tabela: é montado na hora a partir de consultas, exames e triagens.

@@ -1,5 +1,6 @@
 package br.com.citizentech.vivasaude.config;
 
+import br.com.citizentech.vivasaude.domain.DadoInvalidoException;
 import br.com.citizentech.vivasaude.domain.RegraDeNegocioException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -13,5 +14,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(RegraDeNegocioException.class)
     public ProblemDetail regraDeNegocio(RegraDeNegocioException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    /** Valor digitado impossível (ex.: pressão "abc") vira 400 com a explicação. */
+    @ExceptionHandler(DadoInvalidoException.class)
+    public ProblemDetail dadoInvalido(DadoInvalidoException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
     }
 }
