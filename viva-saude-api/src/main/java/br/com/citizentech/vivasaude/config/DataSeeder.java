@@ -54,22 +54,22 @@ public class DataSeeder implements CommandLineRunner {
         }
         LocalDate hoje = LocalDate.now();
 
-        Paciente maria = pacientes.save(new Paciente("Maria da Silva", LocalDate.of(1958, 4, 10), "•••• 4821", "(48) 99812-0001", "Centro"));
-        Paciente jose = pacientes.save(new Paciente("José Pereira", LocalDate.of(1949, 9, 2), "•••• 1177", "(48) 99812-0002", "Vila Nova"));
-        Paciente roberto = pacientes.save(new Paciente("Roberto Machado", LocalDate.of(1962, 3, 30), "•••• 2488", "(48) 99812-0006", "Mirim"));
-        Paciente juliana = pacientes.save(new Paciente("Juliana Ramos", LocalDate.of(1998, 7, 12), "•••• 7031", "(48) 99812-0007", "Centro"));
-        Paciente lucas = pacientes.save(new Paciente("Lucas Oliveira", LocalDate.of(1990, 1, 20), "•••• 9054", "(48) 99812-0004", "Centro"));
+        Paciente maria = pacientes.save(new Paciente("Maria da Silva", LocalDate.of(1958, 4, 10), "•••• 4821", "(11) 99812-0001", "Centro"));
+        Paciente jose = pacientes.save(new Paciente("José Pereira", LocalDate.of(1949, 9, 2), "•••• 1177", "(11) 99812-0002", "Itaquera"));
+        Paciente roberto = pacientes.save(new Paciente("Roberto Machado", LocalDate.of(1962, 3, 30), "•••• 2488", "(11) 99812-0006", "Capão Redondo"));
+        Paciente juliana = pacientes.save(new Paciente("Juliana Ramos", LocalDate.of(1998, 7, 12), "•••• 7031", "(11) 99812-0007", "Centro"));
+        Paciente lucas = pacientes.save(new Paciente("Lucas Oliveira", LocalDate.of(1990, 1, 20), "•••• 9054", "(11) 99812-0004", "Centro"));
 
         Profissional ana = profissionais.save(new Profissional("Dra. Ana Souza", "Clínico geral", "UBS Centro"));
-        Profissional carlos = profissionais.save(new Profissional("Dr. Carlos Lima", "Cardiologia", "Policlínica Municipal"));
-        Profissional rafael = profissionais.save(new Profissional("Dr. Rafael Melo", "Ortopedia", "Policlínica Municipal"));
+        Profissional carlos = profissionais.save(new Profissional("Dr. Carlos Lima", "Cardiologia", "AMA Especialidades"));
+        Profissional rafael = profissionais.save(new Profissional("Dr. Rafael Melo", "Ortopedia", "AMA Especialidades"));
         profissionais.saveAll(List.of(
-                new Profissional("Dra. Beatriz Rocha", "Pediatria", "UBS Vila Nova"),
-                new Profissional("Dra. Luísa Prado", "Oftalmologia", "Policlínica Municipal"),
-                new Profissional("Dr. Tiago Nunes", "Odontologia", "UBS Mirim"),
-                new Profissional("Dra. Helena Costa", "Ginecologia", "UBS Vila Nova"),
-                new Profissional("Dra. Marina Alves", "Saúde mental", "Policlínica Municipal"),
-                new Profissional("Dr. Paulo Reis", "Dermatologia", "Policlínica Municipal")));
+                new Profissional("Dra. Beatriz Rocha", "Pediatria", "UBS Zona Leste"),
+                new Profissional("Dra. Luísa Prado", "Oftalmologia", "AMA Especialidades"),
+                new Profissional("Dr. Tiago Nunes", "Odontologia", "UBS Zona Sul"),
+                new Profissional("Dra. Helena Costa", "Ginecologia", "UBS Zona Leste"),
+                new Profissional("Dra. Marina Alves", "Saúde mental", "AMA Especialidades"),
+                new Profissional("Dr. Paulo Reis", "Dermatologia", "AMA Especialidades")));
 
         // ---- Usuários de teste (um por perfil, e dois pacientes para testar o isolamento) ----
         Usuario uMaria = new Usuario("maria@vivasaude.dev", encoder.encode("Paciente@123"), maria.getNome(), Perfil.PACIENTE);
