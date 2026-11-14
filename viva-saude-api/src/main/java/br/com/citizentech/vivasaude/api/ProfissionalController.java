@@ -4,18 +4,26 @@ import br.com.citizentech.vivasaude.api.dto.AgendarRequest;
 import br.com.citizentech.vivasaude.api.dto.AvaliacaoRequest;
 import br.com.citizentech.vivasaude.api.dto.ComparecimentoRequest;
 import br.com.citizentech.vivasaude.api.dto.ConsultaResponse;
+import br.com.citizentech.vivasaude.api.dto.OfertaRequest;
 import br.com.citizentech.vivasaude.api.dto.PacienteResponse;
+import br.com.citizentech.vivasaude.api.dto.RespostaRequest;
 import br.com.citizentech.vivasaude.api.dto.TriagemResponse;
+import br.com.citizentech.vivasaude.api.dto.VagaResponse;
 import br.com.citizentech.vivasaude.domain.Consulta;
 import br.com.citizentech.vivasaude.domain.Profissional;
 import br.com.citizentech.vivasaude.domain.StatusConsulta;
 import br.com.citizentech.vivasaude.domain.StatusTriagem;
+import br.com.citizentech.vivasaude.domain.StatusVaga;
 import br.com.citizentech.vivasaude.domain.Triagem;
+import br.com.citizentech.vivasaude.domain.Vaga;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.ProfissionalRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
+import br.com.citizentech.vivasaude.repository.VagaRepository;
+import br.com.citizentech.vivasaude.service.VagaService;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -38,13 +46,18 @@ public class ProfissionalController {
     private final ConsultaRepository consultas;
     private final ProfissionalRepository profissionais;
     private final PacienteRepository pacientes;
+    private final VagaRepository vagas;
+    private final VagaService vagaService;
 
     public ProfissionalController(TriagemRepository triagens, ConsultaRepository consultas,
-                                  ProfissionalRepository profissionais, PacienteRepository pacientes) {
+                                  ProfissionalRepository profissionais, PacienteRepository pacientes,
+                                  VagaRepository vagas, VagaService vagaService) {
         this.triagens = triagens;
         this.consultas = consultas;
         this.profissionais = profissionais;
         this.pacientes = pacientes;
+        this.vagas = vagas;
+        this.vagaService = vagaService;
     }
 
     /** Triagens aguardando avaliação: as mais urgentes primeiro. */
@@ -110,9 +123,36 @@ public class ProfissionalController {
 
     @PatchMapping("/consultas/{id}/cancelar")
     public ConsultaResponse cancelar(@PathVariable Long id) {
-        Consulta consulta = buscar(id);
-        consulta.cancelar();
-        return ConsultaResponse.from(consultas.save(consulta));
+        return ConsultaResponse.from(vagaService.cancelar(buscar(id))); // se tinha horário, ele vira vaga
+    }
+
+    // ---------- Gestão de vagas ----------
+
+    /** Vagas abertas (de hoje em diante) e as já preenchidas, por data e horário. */
+    @GetMapping("/vagas")
+    public List<VagaResponse> vagas() {
+        LocalDate hoje = LocalDate.now();
+        return vagas.findAll().stream()
+                .filter(v -> v.getStatus() == StatusVaga.PREENCHIDA || !v.getData().isBefore(hoje))
+                .sorted(Comparator.comparing(Vaga::getData).thenComparing(Vaga::getHorario))
+                .map(VagaResponse::from)
+                .toList();
+    }
+
+    @GetMapping("/vagas/{id}/elegiveis")
+    public List<ConsultaResponse> elegiveis(@PathVariable Long id) {
+        return vagaService.elegiveis(vagaService.buscar(id)).stream().map(ConsultaResponse::from).toList();
+    }
+
+    @PostMapping("/vagas/{id}/oferecer")
+    public VagaResponse oferecer(@PathVariable Long id, @Valid @RequestBody OfertaRequest req) {
+        return VagaResponse.from(vagaService.oferecer(id, req.consultaId()));
+    }
+
+    /** Registra a resposta do paciente (por exemplo, quando ele responde por telefone). */
+    @PostMapping("/vagas/{id}/resposta")
+    public VagaResponse resposta(@PathVariable Long id, @RequestBody RespostaRequest req) {
+        return VagaResponse.from(vagaService.responder(vagaService.buscar(id), req.aceitou()));
     }
 
     @GetMapping("/pacientes")

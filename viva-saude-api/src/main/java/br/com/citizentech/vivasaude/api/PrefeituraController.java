@@ -5,10 +5,14 @@ import br.com.citizentech.vivasaude.api.dto.IndicadoresResponse.UnidadeIndicador
 import br.com.citizentech.vivasaude.domain.Consulta;
 import br.com.citizentech.vivasaude.domain.Prioridade;
 import br.com.citizentech.vivasaude.domain.StatusConsulta;
+import br.com.citizentech.vivasaude.domain.StatusVaga;
 import br.com.citizentech.vivasaude.domain.Triagem;
+import br.com.citizentech.vivasaude.domain.Vaga;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
+import br.com.citizentech.vivasaude.repository.VagaRepository;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -30,11 +34,14 @@ public class PrefeituraController {
     private final ConsultaRepository consultas;
     private final TriagemRepository triagens;
     private final PacienteRepository pacientes;
+    private final VagaRepository vagas;
 
-    public PrefeituraController(ConsultaRepository consultas, TriagemRepository triagens, PacienteRepository pacientes) {
+    public PrefeituraController(ConsultaRepository consultas, TriagemRepository triagens, PacienteRepository pacientes,
+                                VagaRepository vagas) {
         this.consultas = consultas;
         this.triagens = triagens;
         this.pacientes = pacientes;
+        this.vagas = vagas;
     }
 
     @GetMapping("/indicadores")
@@ -58,7 +65,7 @@ public class PrefeituraController {
             }
 
             if (c.getUnidade() != null) {
-                long[] v = porUnidade.computeIfAbsent(c.getUnidade(), k -> new long[4]);
+                long[] v = porUnidade.computeIfAbsent(c.getUnidade(), k -> new long[5]);
                 switch (c.getStatus()) {
                     case AGENDADA -> v[0]++;
                     case REALIZADA -> v[1]++;
@@ -69,6 +76,19 @@ public class PrefeituraController {
             }
         }
 
+        // Vagas: reaproveitadas = preenchidas; perdidas = ficaram sem ninguém e a data já passou
+        LocalDate hoje = LocalDate.now();
+        long reaproveitadas = 0;
+        long perdidas = 0;
+        for (Vaga v : vagas.findAll()) {
+            if (v.getStatus() == StatusVaga.PREENCHIDA) {
+                reaproveitadas++;
+                porUnidade.computeIfAbsent(v.getUnidade(), k -> new long[5])[4]++;
+            } else if (v.getData().isBefore(hoje)) {
+                perdidas++;
+            }
+        }
+
         Map<Prioridade, Long> triagensPorPrioridade = new EnumMap<>(Prioridade.class);
         for (Triagem t : triagens.findAll()) {
             Prioridade p = t.getClassificacao() != null ? t.getClassificacao() : t.getSugerida();
@@ -76,7 +96,7 @@ public class PrefeituraController {
         }
 
         List<UnidadeIndicador> unidades = new ArrayList<>();
-        porUnidade.forEach((nome, v) -> unidades.add(new UnidadeIndicador(nome, v[0], v[1], v[2], v[3])));
+        porUnidade.forEach((nome, v) -> unidades.add(new UnidadeIndicador(nome, v[0], v[1], v[2], v[3], v[4])));
 
         double mediaEspera = qtdComData == 0 ? 0 : Math.round(somaDias * 10.0 / qtdComData) / 10.0;
 
@@ -87,6 +107,8 @@ public class PrefeituraController {
                 porStatus.getOrDefault(StatusConsulta.REALIZADA, 0L),
                 porStatus.getOrDefault(StatusConsulta.CANCELADA, 0L),
                 porStatus.getOrDefault(StatusConsulta.FALTOU, 0L),
+                reaproveitadas,
+                perdidas,
                 porEspecialidade,
                 triagensPorPrioridade,
                 unidades);

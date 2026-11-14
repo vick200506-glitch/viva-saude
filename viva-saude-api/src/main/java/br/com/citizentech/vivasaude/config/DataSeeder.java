@@ -7,11 +7,13 @@ import br.com.citizentech.vivasaude.domain.Prioridade;
 import br.com.citizentech.vivasaude.domain.Profissional;
 import br.com.citizentech.vivasaude.domain.Triagem;
 import br.com.citizentech.vivasaude.domain.Usuario;
+import br.com.citizentech.vivasaude.domain.Vaga;
 import br.com.citizentech.vivasaude.repository.ConsultaRepository;
 import br.com.citizentech.vivasaude.repository.PacienteRepository;
 import br.com.citizentech.vivasaude.repository.ProfissionalRepository;
 import br.com.citizentech.vivasaude.repository.TriagemRepository;
 import br.com.citizentech.vivasaude.repository.UsuarioRepository;
+import br.com.citizentech.vivasaude.repository.VagaRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -34,15 +36,18 @@ public class DataSeeder implements CommandLineRunner {
     private final ProfissionalRepository profissionais;
     private final ConsultaRepository consultas;
     private final TriagemRepository triagens;
+    private final VagaRepository vagas;
     private final PasswordEncoder encoder;
 
     public DataSeeder(UsuarioRepository usuarios, PacienteRepository pacientes, ProfissionalRepository profissionais,
-                      ConsultaRepository consultas, TriagemRepository triagens, PasswordEncoder encoder) {
+                      ConsultaRepository consultas, TriagemRepository triagens, VagaRepository vagas,
+                      PasswordEncoder encoder) {
         this.usuarios = usuarios;
         this.pacientes = pacientes;
         this.profissionais = profissionais;
         this.consultas = consultas;
         this.triagens = triagens;
+        this.vagas = vagas;
         this.encoder = encoder;
     }
 
@@ -110,7 +115,14 @@ public class DataSeeder implements CommandLineRunner {
         c7.agendar(ana, hoje.minusDays(5), LocalTime.of(10, 0));
         c7.cancelar();
 
-        consultas.saveAll(List.of(c1, c2, c3, c4, c5, c6, c7));
+        // Juliana cancelou uma cardiologia daqui a 3 dias: o horário virou vaga
+        Consulta c8 = new Consulta(juliana, "Cardiologia", Prioridade.VERDE, "UBS");
+        c8.definirCriadaEm(hoje.minusDays(18));
+        c8.agendar(carlos, hoje.plusDays(3), LocalTime.of(15, 0));
+        c8.cancelar();
+
+        consultas.saveAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
+        vagas.save(new Vaga(carlos, "Cardiologia", hoje.plusDays(3), LocalTime.of(15, 0), "Cancelamento"));
 
         // ---- Triagens aguardando avaliação ----
         triagens.saveAll(List.of(

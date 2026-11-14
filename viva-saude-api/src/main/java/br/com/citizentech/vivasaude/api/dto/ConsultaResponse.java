@@ -9,7 +9,7 @@ import java.time.LocalTime;
 public record ConsultaResponse(Long id, Long pacienteId, String paciente, String especialidade,
                                String unidade, String profissional, LocalDate data, LocalTime horario,
                                StatusConsulta status, Prioridade prioridade, String origem,
-                               LocalDate criadaEm) {
+                               LocalDate criadaEm, boolean reaproveitada) {
 
     public static ConsultaResponse from(Consulta c) {
         return new ConsultaResponse(
@@ -24,6 +24,7 @@ public record ConsultaResponse(Long id, Long pacienteId, String paciente, String
                 c.getStatus(),
                 c.getPrioridade(),
                 c.getOrigem(),
-                c.getCriadaEm());
+                c.getCriadaEm(),
+                c.isReaproveitada());
     }
 }

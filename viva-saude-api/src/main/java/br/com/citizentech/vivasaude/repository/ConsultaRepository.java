@@ -4,6 +4,7 @@ import br.com.citizentech.vivasaude.domain.Consulta;
 import br.com.citizentech.vivasaude.domain.StatusConsulta;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,8 @@ public interface ConsultaRepository extends JpaRepository<Consulta, Long> {
     Optional<Consulta> findByIdAndPacienteId(Long id, Long pacienteId);
 
     List<Consulta> findByStatus(StatusConsulta status);
+
+    List<Consulta> findByEspecialidadeAndStatusIn(String especialidade, Collection<StatusConsulta> status);
 
     boolean existsByProfissionalIdAndDataAndHorarioAndStatus(Long profissionalId, LocalDate data,
                                                              LocalTime horario, StatusConsulta status);

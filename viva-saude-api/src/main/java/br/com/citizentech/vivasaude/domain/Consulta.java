@@ -44,6 +44,9 @@ public class Consulta {
     @Column(nullable = false)
     private LocalDate criadaEm;
 
+    /** true quando a consulta foi marcada (ou antecipada) usando uma vaga reaproveitada. */
+    private boolean reaproveitada;
+
     protected Consulta() {
     }
 
@@ -68,6 +71,19 @@ public class Consulta {
         this.data = data;
         this.horario = horario;
         this.status = StatusConsulta.AGENDADA;
+    }
+
+    /** Ocupa uma vaga reaproveitada: vale para quem ainda não tinha horário ou tinha um mais tarde. */
+    public void ocuparVaga(Profissional profissional, LocalDate data, LocalTime horario) {
+        if (status != StatusConsulta.SOLICITADA && status != StatusConsulta.AGENDADA) {
+            throw new RegraDeNegocioException("Este pedido não pode mais receber uma vaga.");
+        }
+        this.profissional = profissional;
+        this.unidade = profissional.getUnidade();
+        this.data = data;
+        this.horario = horario;
+        this.status = StatusConsulta.AGENDADA;
+        this.reaproveitada = true;
     }
 
     public void cancelar() {
@@ -100,4 +116,5 @@ public class Consulta {
     public Prioridade getPrioridade() { return prioridade; }
     public String getOrigem() { return origem; }
     public LocalDate getCriadaEm() { return criadaEm; }
+    public boolean isReaproveitada() { return reaproveitada; }
 }

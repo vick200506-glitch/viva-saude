@@ -8,7 +8,7 @@ API do MVP do Viva Saúde (Global Solution · CitizenTech) com **login e senha**
 | `PROFISSIONAL` | Painel dos profissionais | `/api/profissional/**` |
 | `GESTOR` | Painel da prefeitura | `/api/prefeitura/**` |
 
-Stack: Java 17, Spring Boot 3.5, Spring Security, JWT, JPA/Hibernate, H2 (dev) e PostgreSQL.
+Stack: Java 17, Spring Boot 3.5.15, Spring Security, JWT, JPA/Hibernate, H2 (dev) e PostgreSQL.
 
 ---
 
@@ -75,6 +75,9 @@ curl -i http://localhost:8080/api/prefeitura/indicadores -H "Authorization: Bear
 | PATCH | `/api/paciente/consultas/{id}/cancelar` | Cancelar **uma consulta minha** |
 | GET | `/api/paciente/triagens` | Minhas triagens |
 | POST | `/api/paciente/triagens` | Enviar triagem `{area, especialidade, sintomas[], alertas[], duracao, relato}` |
+| GET | `/api/paciente/vagas-oferecidas` | Vagas oferecidas para mim |
+| POST | `/api/paciente/vagas/{id}/aceitar` | Aceitar uma vaga oferecida para mim |
+| POST | `/api/paciente/vagas/{id}/recusar` | Recusar uma vaga oferecida para mim |
 
 ### Profissional (`PROFISSIONAL`)
 | Método | Rota | O que faz |
@@ -87,6 +90,10 @@ curl -i http://localhost:8080/api/prefeitura/indicadores -H "Authorization: Bear
 | PATCH | `/api/profissional/consultas/{id}/comparecimento` | `{compareceu: true/false}` |
 | PATCH | `/api/profissional/consultas/{id}/cancelar` | Cancelar pela unidade |
 | GET | `/api/profissional/pacientes` | Lista de pacientes |
+| GET | `/api/profissional/vagas` | Vagas abertas e reaproveitadas |
+| GET | `/api/profissional/vagas/{id}/elegiveis` | Quem pode ficar com a vaga, em ordem |
+| POST | `/api/profissional/vagas/{id}/oferecer` | `{consultaId}` oferece a vaga a um pedido |
+| POST | `/api/profissional/vagas/{id}/resposta` | `{aceitou: true/false}` registra a resposta do paciente |
 
 ### Prefeitura (`GESTOR`)
 | Método | Rota | O que faz |
@@ -139,4 +146,4 @@ Fluxo no front:
 - Registrar quem acessou os dados de cada paciente (auditoria, exigência da LGPD para dados de saúde).
 - Restringir o profissional aos pacientes da sua unidade.
 - Migrações de banco com Flyway em vez de `ddl-auto: update`.
-- Entidades que faltam do modelo do projeto: `responsaveis`, `unidades`, `exames`, `historico`, `notificacoes` e a gestão de vagas.
+- Entidades que faltam do modelo do projeto: `responsaveis`, `unidades`, `exames`, `historico` e `notificacoes`.

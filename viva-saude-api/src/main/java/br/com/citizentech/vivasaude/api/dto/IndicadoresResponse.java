@@ -15,10 +15,13 @@ public record IndicadoresResponse(
         long consultasRealizadas,
         long cancelamentos,
         long faltas,
+        long vagasReaproveitadas,
+        long vagasPerdidas,
         Map<String, Long> solicitacoesPorEspecialidade,
         Map<Prioridade, Long> triagensPorPrioridade,
         List<UnidadeIndicador> porUnidade) {
 
-    public record UnidadeIndicador(String unidade, long agendadas, long realizadas, long canceladas, long faltas) {
+    public record UnidadeIndicador(String unidade, long agendadas, long realizadas, long canceladas, long faltas,
+                                   long vagasReaproveitadas) {
     }
 }
