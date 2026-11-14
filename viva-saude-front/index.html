@@ -1050,7 +1050,13 @@ const ACT={
   geo(){
     if(!navigator.geolocation){ui.locMsg="Seu navegador não permite localização. Digite sua cidade.";ui.locOk=false;render();return}
     ui.locMsg="Buscando sua localização…";ui.locOk=false;render();
-    try{navigator.geolocation.getCurrentPosition(p=>{ui.coords={lat:p.coords.latitude,lng:p.coords.longitude};ui.city="";ui.locMsg="Localização encontrada. Os links já usam o lugar onde você está.";ui.locOk=true;render()},
+    try{navigator.geolocation.getCurrentPosition(p=>{
+        const lat=p.coords.latitude,lng=p.coords.longitude;
+        // Área aproximada do município de São Paulo. Fora dela, o GPS é ignorado e a busca fica na capital.
+        const naCapital=lat>=-24.01&&lat<=-23.35&&lng>=-46.83&&lng<=-46.36;
+        if(naCapital){ui.coords={lat,lng};ui.city="";ui.locMsg="Localização encontrada. Os links já usam o lugar onde você está.";ui.locOk=true}
+        else{ui.coords=null;ui.city="";ui.locMsg="Sua localização está fora da cidade de São Paulo. O mapa mostra unidades da capital; se quiser, digite um bairro.";ui.locOk=false}
+        render()},
       ()=>{ui.locMsg="Não consegui acessar sua localização. Permita o acesso no navegador ou digite sua cidade.";render()},{enableHighAccuracy:false,timeout:12000,maximumAge:300000})}
     catch(e){ui.locMsg="Não consegui acessar sua localização. Digite sua cidade.";render()}},
   setcity(){const v=($("city")?.value||"").trim();if(!v){ui.locMsg="Digite o nome do seu bairro.";ui.locOk=false;render();return}
