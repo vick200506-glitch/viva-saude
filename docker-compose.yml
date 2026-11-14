@@ -1,0 +1,48 @@
+# Sobe o projeto inteiro com um comando: docker compose up --build
+#   db   → banco PostgreSQL (os dados ficam guardados num volume)
+#   api  → API Spring Boot   → http://localhost:8080
+#   site → front-end (nginx) → http://localhost:5500
+#
+# Antes da primeira vez: copie .env.example para .env e troque os valores.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vivasaude
+      POSTGRES_USER: vivasaude
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+    volumes:
+      - dados-postgres:/var/lib/postgresql/data   # os dados sobrevivem quando o container para
+    healthcheck:                                  # "o banco já está pronto para receber conexões?"
+      test: ["CMD-SHELL", "pg_isready -U vivasaude -d vivasaude"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    # Sem "ports": o banco NÃO fica exposto no seu Mac, só a API conversa com ele.
+
+  api:
+    build: ./viva-saude-api
+    depends_on:
+      db:
+        condition: service_healthy                # só liga a API depois que o banco estiver pronto
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres            # usa o application-postgres.yml
+      DB_URL: jdbc:postgresql://db:5432/vivasaude # "db" é o nome do serviço acima, não localhost
+      DB_USER: vivasaude
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env}
+      APP_SEED: "true"                            # cria os dados de exemplo só se o banco estiver vazio
+      CORS_ORIGENS: http://localhost:5500,http://127.0.0.1:5500
+    ports:
+      - "8080:8080"
+
+  site:
+    image: nginx:alpine
+    volumes:
+      - ./viva-saude-front:/usr/share/nginx/html:ro   # ro = só leitura
+    ports:
+      - "5500:80"
+
+volumes:
+  dados-postgres:

@@ -1,0 +1,6 @@
+# O que NÃO precisa ir para dentro da imagem
+target/
+.idea/
+*.iml
+.vscode/
+.env

@@ -123,19 +123,31 @@ Especialidades aceitas: Cardiologia, Dermatologia, Oftalmologia, Pediatria, Gine
 
 Os testes em `src/test/.../SegurancaTest.java` provam cada um desses pontos.
 
-## 6. Usando PostgreSQL
+## 6. Rodando tudo com Docker (PostgreSQL + API + site)
+
+Na pasta **raiz do repositório** (`viva-saude`, onde está o `docker-compose.yml`):
 
 ```bash
-docker compose up -d   # sobe o Postgres local
-
-export SPRING_PROFILES_ACTIVE=postgres
-export DB_PASSWORD=troque-esta-senha
-export JWT_SECRET="uma-frase-secreta-longa-com-pelo-menos-32-caracteres"
-export APP_SEED=true    # só na primeira vez, para criar os dados de exemplo
-mvn spring-boot:run
+cp .env.example .env          # só na primeira vez; depois edite as senhas no .env
+docker compose up --build     # constrói a API e sobe banco, API e site
 ```
 
-**Nunca** coloque `JWT_SECRET` ou senhas de banco no GitHub. Use variáveis de ambiente.
+- Site: http://localhost:5500
+- API: http://localhost:8080
+- Banco: PostgreSQL, sem porta aberta no seu Mac (só a API acessa)
+
+Os dados ficam no volume `dados-postgres` e **não somem** ao desligar.
+
+| Comando | O que faz |
+|---|---|
+| `docker compose up --build` | Sobe tudo (reconstrói a API se o código mudou) |
+| `docker compose up -d` | Sobe em segundo plano |
+| `docker compose logs -f api` | Mostra os logs da API |
+| `docker compose down` | Desliga tudo (os dados continuam no volume) |
+| `docker compose down -v` | Desliga e **apaga os dados** (volta aos dados de exemplo) |
+| `docker compose exec db psql -U vivasaude -d vivasaude` | Abre o banco para consultas SQL |
+
+**Nunca** coloque o `.env` no GitHub: ele guarda as senhas.
 
 ## 7. Ligando com o front-end
 
